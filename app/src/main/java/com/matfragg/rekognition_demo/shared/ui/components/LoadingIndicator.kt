@@ -1,5 +1,6 @@
 package com.matfragg.rekognition_demo.shared.ui.components
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -10,7 +11,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun LoadingIndicator(
     message: String = "Cargando...",
-    modifier: Modifier = Modifier
+    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier,

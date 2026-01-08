@@ -1,4 +1,4 @@
-package com.matfragg.rekognition_demo.shared.components
+package com.matfragg.rekognition_demo.shared.ui.components
 
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable

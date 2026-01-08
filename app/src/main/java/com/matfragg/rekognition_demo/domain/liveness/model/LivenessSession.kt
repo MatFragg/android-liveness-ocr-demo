@@ -1,4 +1,11 @@
-package com.matfragg.rekognition_demo.domain.face_recognition.liveness.model
+package com.matfragg.rekognition_demo.domain.liveness.model
 
-class LivenessSession {
+data class LivenessSession(
+    val sessionId: String,
+    val region: String = "us-east-1",
+    val cameraMode: CameraMode = CameraMode.FRONT
+)
+
+enum class CameraMode {
+    FRONT, BACK
 }
