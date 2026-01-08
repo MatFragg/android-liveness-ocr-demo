@@ -1,6 +1,9 @@
+// build.gradle.kts (Module: app)
 plugins {
-    alias(libs.plugins.android.application)
+    id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.google.dagger.hilt.android")
+    id("kotlin-kapt")
 }
 
 android {
@@ -15,24 +18,10 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14"
-    }
-
-    buildFeatures {
-        compose = true
-    }
-
-    compileOptions {
-        isCoreLibraryDesugaringEnabled = true
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-
-    kotlinOptions {
-        jvmTarget = "11"
+        vectorDrawables {
+            useSupportLibrary = true
+        }
     }
 
     buildTypes {
@@ -45,52 +34,131 @@ android {
         }
     }
 
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    buildFeatures {
+        compose = true
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.14"
+    }
+
     packaging {
         resources {
-            excludes += setOf(
-                "META-INF/DEPENDENCIES",
-                "META-INF/LICENSE",
-                "META-INF/LICENSE.txt",
-                "META-INF/NOTICE",
-                "META-INF/NOTICE.txt"
-            )
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+
         }
     }
 }
 
 dependencies {
-    // Desugaring
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    // Kotlin
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.10")
 
-    // Android Standard
-    implementation(libs.appcompat)
-    implementation(libs.material)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.ext.junit)
-    androidTestImplementation(libs.espresso.core)
+    // Core Android
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
+    implementation("androidx.activity:activity-compose:1.8.1")
+
+    // Compose
+    val composeBom = platform("androidx.compose:compose-bom:2023.10.01")
+    implementation(composeBom)
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-graphics")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
+
+    // Navigation Compose
+    implementation("androidx.navigation:navigation-compose:2.7.5")
+
+    // Lifecycle
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.6.2")
+
+    // Hilt (Dependency Injection)
+    implementation("com.google.dagger:hilt-android:2.48.1")
+    kapt("com.google.dagger:hilt-compiler:2.48.1")
+    implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
+
+    // Retrofit (Network)
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    // Gson
+    implementation("com.google.code.gson:gson:2.10.1")
 
     // CameraX
-    implementation("androidx.camera:camera-core:1.3.4")
-    implementation("androidx.camera:camera-camera2:1.3.4")
-    implementation("androidx.camera:camera-lifecycle:1.3.4")
-    implementation("androidx.camera:camera-view:1.3.4")
+    val cameraxVersion = "1.3.0"
+    implementation("androidx.camera:camera-core:$cameraxVersion")
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+    implementation("androidx.camera:camera-view:$cameraxVersion")
 
-    // AWS AMPLIFY (ESTABLE)
-
+    // AWS Amplify (para Liveness)
     implementation("com.amplifyframework:aws-auth-cognito:2.19.0")
     implementation("com.amplifyframework:core")
     implementation("com.amplifyframework.ui:liveness:1.5.0")
-    // ----------------------------------------
 
-    // Compose Dependencies
-    implementation(platform("androidx.compose:compose-bom:2024.06.00"))
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.foundation:foundation")
-    implementation("androidx.compose.runtime:runtime")
-    implementation("androidx.activity:activity-compose:1.9.0")
-    implementation("androidx.compose.material:material-icons-extended")
+    // Testing
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    testImplementation("io.mockk:mockk:1.13.8")
 
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    androidTestImplementation(composeBom)
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 
+    debugImplementation("androidx.compose.ui:ui-tooling")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    implementation("com.google.cloud:google-cloud-vision:3.26.0") {
+        exclude(group = "io.grpc", module = "grpc-netty-shaded")
+        exclude(group = "io.grpc", module = "grpc-alts")
+    }
+
+    // gRPC para Android (versión lite sin conflictos)
+    implementation("io.grpc:grpc-okhttp:1.58.0")
+    implementation("io.grpc:grpc-protobuf-lite:1.58.0")
+    implementation("io.grpc:grpc-stub:1.58.0")
+
+    // Guava (requerido por Google Cloud)
+    implementation("com.google.guava:guava:32.1.3-android")
+
+    // Google Auth Library (para autenticación)
+    implementation("com.google.auth:google-auth-library-oauth2-http:1.19.0")
+
+    // Protobuf (si necesitas trabajar con buffers directamente)
+    implementation("com.google.protobuf:protobuf-javalite:3.24.3")
+
+    // MultiDex (requerido para apps grandes)
+    implementation("androidx.multidex:multidex:2.0.1")
+
+    // Apache Commons Imaging (para procesamiento de imágenes)
+    implementation("org.apache.commons:commons-imaging:1.0-alpha3")
+
+    implementation("com.google.mlkit:text-recognition:16.0.0")
+    implementation("io.coil-kt:coil-compose:2.5.0")
+
+}
+
+configurations.all {
+    resolutionStrategy {
+        force("com.google.guava:guava:32.1.3-android")
+        force("com.google.protobuf:protobuf-javalite:3.24.3")
+    }
 }
