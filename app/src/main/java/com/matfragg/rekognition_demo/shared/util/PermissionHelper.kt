@@ -61,7 +61,9 @@ data class CameraPermissionState(
 @Composable
 fun MainScreenWithPermissions(
     viewModel: MainViewModel = hiltViewModel(),
-    onNavigateToLiveness: () -> Unit
+    onNavigateToLiveness: () -> Unit,
+    onNavigateToFaceRecognition: () -> Unit,
+    onNavigateToDocumentScan: () -> Unit
 ) {
     var showRationale by remember { mutableStateOf(false) }
 
@@ -81,7 +83,12 @@ fun MainScreenWithPermissions(
         )
     } else {
         // Mostrar la UI normal
-        MainScreen(viewModel, onNavigateToLiveness)
+        MainScreen(
+            viewModel = viewModel,
+            onNavigateToLiveness = onNavigateToLiveness,
+            onNavigateToFaceRecognition = onNavigateToFaceRecognition,
+            onNavigateToDocumentScan = onNavigateToDocumentScan
+        )
     }
 
     if (showRationale) {

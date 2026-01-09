@@ -126,22 +126,6 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
-    implementation("com.google.cloud:google-cloud-vision:3.26.0") {
-        exclude(group = "io.grpc", module = "grpc-netty-shaded")
-        exclude(group = "io.grpc", module = "grpc-alts")
-    }
-
-    // gRPC para Android (versión lite sin conflictos)
-    implementation("io.grpc:grpc-okhttp:1.58.0")
-    implementation("io.grpc:grpc-protobuf-lite:1.58.0")
-    implementation("io.grpc:grpc-stub:1.58.0")
-
-    // Guava (requerido por Google Cloud)
-    implementation("com.google.guava:guava:32.1.3-android")
-
-    // Google Auth Library (para autenticación)
-    implementation("com.google.auth:google-auth-library-oauth2-http:1.19.0")
-
     // Protobuf (si necesitas trabajar con buffers directamente)
     implementation("com.google.protobuf:protobuf-javalite:3.24.3")
 
@@ -153,12 +137,13 @@ dependencies {
 
     implementation("com.google.mlkit:text-recognition:16.0.0")
     implementation("io.coil-kt:coil-compose:2.5.0")
-
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
 }
 
 configurations.all {
     resolutionStrategy {
-        force("com.google.guava:guava:32.1.3-android")
-        force("com.google.protobuf:protobuf-javalite:3.24.3")
+        // Forzamos a que si hay un conflicto, se ignore la versión 'java'
+        // y se use 'javalite', o simplemente evitamos la duplicidad.
+        exclude(group = "com.google.protobuf", module = "protobuf-java")
     }
 }

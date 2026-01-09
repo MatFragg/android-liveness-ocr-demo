@@ -2,6 +2,7 @@ package com.matfragg.rekognition_demo.di
 
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import com.matfragg.rekognition_demo.data.document_ocr.remote.DniApi
 import com.matfragg.rekognition_demo.data.face_recognition.remote.RekognitionApi
 import com.matfragg.rekognition_demo.data.liveness.remote.LivenessApi
 import com.matfragg.rekognition_demo.shared.util.Constants
@@ -59,6 +60,19 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    @Named("spring_backend")
+    fun provideSpringRetrofit(
+        okHttpClient: OkHttpClient,
+        gson: Gson
+    ): Retrofit = Retrofit.Builder()
+        // Uso 10.0.2.2 porque es la IP que usa el emulador para ver el localhost de tu PC
+        .baseUrl(Constants.DNI_OCR_URL)
+        .client(okHttpClient)
+        .addConverterFactory(GsonConverterFactory.create(gson))
+        .build()
+
+    @Provides
+    @Singleton
     fun provideRekognitionApi(
         @Named("detect") retrofit: Retrofit
     ): RekognitionApi = retrofit.create(RekognitionApi::class.java)
@@ -68,4 +82,10 @@ object NetworkModule {
     fun provideLivenessApi(
         @Named("detect") retrofit: Retrofit
     ): LivenessApi = retrofit.create(LivenessApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideDniApi(
+        @Named("spring_backend") retrofit: Retrofit
+    ): DniApi = retrofit.create(DniApi::class.java)
 }
