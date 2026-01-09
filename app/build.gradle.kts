@@ -138,6 +138,7 @@ dependencies {
     implementation("com.google.mlkit:text-recognition:16.0.0")
     implementation("io.coil-kt:coil-compose:2.5.0")
     implementation("androidx.exifinterface:exifinterface:1.3.7")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 }
 
 configurations.all {

@@ -29,10 +29,16 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(Constants.CONNECT_TIMEOUT, TimeUnit.MILLISECONDS)
-        .readTimeout(Constants.READ_TIMEOUT, TimeUnit.MILLISECONDS)
-        .build()
+    fun provideOkHttpClient(): OkHttpClient {
+        val logging = okhttp3.logging.HttpLoggingInterceptor().apply {
+            level = okhttp3.logging.HttpLoggingInterceptor.Level.BODY
+        }
+        return OkHttpClient.Builder()
+            .addInterceptor(logging)
+            .connectTimeout(Constants.CONNECT_TIMEOUT, TimeUnit.MILLISECONDS)
+            .readTimeout(Constants.READ_TIMEOUT, TimeUnit.MILLISECONDS)
+            .build()
+    }
 
     @Provides
     @Singleton
@@ -65,7 +71,6 @@ object NetworkModule {
         okHttpClient: OkHttpClient,
         gson: Gson
     ): Retrofit = Retrofit.Builder()
-        // Uso 10.0.2.2 porque es la IP que usa el emulador para ver el localhost de tu PC
         .baseUrl(Constants.DNI_OCR_URL)
         .client(okHttpClient)
         .addConverterFactory(GsonConverterFactory.create(gson))
@@ -74,7 +79,7 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideRekognitionApi(
-        @Named("detect") retrofit: Retrofit
+        @Named("compare") retrofit: Retrofit
     ): RekognitionApi = retrofit.create(RekognitionApi::class.java)
 
     @Provides

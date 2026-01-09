@@ -2,11 +2,15 @@ package com.matfragg.rekognition_demo.data.face_recognition.remote
 
 import com.matfragg.rekognition_demo.data.face_recognition.remote.dto.FaceComparisonDto
 import com.matfragg.rekognition_demo.data.face_recognition.remote.dto.FaceDetectionDto
+import com.matfragg.rekognition_demo.data.face_recognition.remote.dto.FaceDetectionResponseDto
+import okhttp3.MultipartBody
 import retrofit2.http.Body
+import retrofit2.http.Multipart
 import retrofit2.http.POST
+import retrofit2.http.Part
 
 data class DetectFaceRequest(
-    val imageBase64: String
+    val image: String
 )
 
 data class CompareFacesRequest(
@@ -15,9 +19,12 @@ data class CompareFacesRequest(
 )
 
 interface RekognitionApi {
-    @POST("/")
-    suspend fun detectFace(@Body request: DetectFaceRequest): FaceDetectionDto
+    @Multipart
+    @POST("detect-faces")
+    suspend fun detectFace(@Part image: MultipartBody.Part): FaceDetectionResponseDto
 
-    @POST("/")
-    suspend fun compareFaces(@Body request: CompareFacesRequest): FaceComparisonDto
+    @Multipart
+    @POST("compare-files")
+    suspend fun compareFaces(@Part sourceImage: MultipartBody.Part,
+                             @Part targetImage: MultipartBody.Part): FaceComparisonDto
 }
