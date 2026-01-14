@@ -33,7 +33,8 @@ import com.amplifyframework.ui.liveness.ui.LivenessColorScheme
 fun LivenessScreen(
     viewModel: LivenessViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
-    onComplete: (String) -> Unit
+    onComplete: (String) -> Unit,
+    onContinue: () -> Unit
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -118,7 +119,7 @@ fun LivenessScreen(
                     LivenessResultView(
                         result = state.result!!,
                         onComplete = {
-                            onComplete(state.sessionId ?: "")
+                            onContinue()
                         }
                     )
                 }

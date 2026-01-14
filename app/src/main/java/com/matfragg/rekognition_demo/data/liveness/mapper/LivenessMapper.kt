@@ -20,7 +20,8 @@ class LivenessMapper {
                 "succeeded" -> LivenessStatus.SUCCEEDED
                 "failed" -> LivenessStatus.FAILED
                 else -> LivenessStatus.ERROR
-            }
+            },
+            fotoBase64 = dto.referenceImage?.bytes
         )
     }
 }

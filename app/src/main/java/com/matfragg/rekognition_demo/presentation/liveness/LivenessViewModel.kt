@@ -10,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -27,34 +28,27 @@ class LivenessViewModel @Inject constructor(
     }
 
     fun createSession(camera: CameraMode = CameraMode.FRONT) {
+        // 🛡️ ESTA LÍNEA DETIENE EL BUCLE:
+        // Si ya tenemos un ID de sesión o estamos cargando, ignoramos cualquier otra llamada.
+        if (_state.value.sessionId != null || _state.value.isLoading) return
+
         viewModelScope.launch {
-            _state.value = _state.value.copy(
-                isLoading = true,
-                error = null,
-                currentCamera = camera
-            )
+            _state.update { it.copy(isLoading = true, error = null, currentCamera = camera) }
 
             when (val result = createSessionUseCase()) {
                 is Result.Success -> {
-                    // AGREGAR ESTE LOG
-                    android.util.Log.d("LivenessDebug", "ID recibido: '${result.data.sessionId}'")
-
-                    _state.value = _state.value.copy(
+                    _state.update { it.copy(
                         sessionId = result.data.sessionId,
                         isLoading = false
-                    )
+                    )}
                 }
                 is Result.Error -> {
-                    // ESTO ES VITAL: Imprimirá en rojo por qué falló la petición
-                    android.util.Log.e("LivenessDebug", "FALLO TOTAL: ${result.exception.message}")
-                    result.exception.printStackTrace()
-
-                    _state.value = _state.value.copy(
+                    _state.update { it.copy(
                         error = "Error: ${result.exception.message}",
                         isLoading = false
-                    )
+                    )}
                 }
-                is Result.Loading -> {}
+                else -> {}
             }
         }
     }

@@ -9,5 +9,10 @@ data class LivenessSessionDto(
 data class LivenessResultDto(
     @SerializedName("isLive") val isLive: Boolean,
     @SerializedName("confidence") val confidence: Double,
-    @SerializedName("status") val status: String
+    @SerializedName("status") val status: String,
+    @SerializedName("ReferenceImage") val referenceImage: ReferenceImageDto?
+)
+
+data class ReferenceImageDto(
+    @SerializedName("Bytes") val bytes: String?
 )

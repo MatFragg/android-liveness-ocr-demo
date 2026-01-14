@@ -102,6 +102,12 @@ com.matfragg.rekognition_demo/
 │   │       ├── CreateLivenessSessionUseCase.kt
 │   │       └── GetLivenessResultUseCase.kt
 │   │
+│   ├── 📂 document_ocr/
+│   │   ├── model/
+│   │   ├── repository/
+│   │   └── usecase/
+│   │
+│   │
 │   └── 📂 camera/
 │       └── model/
 │           └── CapturedImage.kt
@@ -128,6 +134,8 @@ com.matfragg.rekognition_demo/
 │   │   └── mapper/
 │   │       └── LivenessMapper.kt
 │   │
+│   ├── 📂 document_ocr/
+│   │
 │   └── 📂 camera/
 │       └── util/
 │           └── ImageOptimizer.kt
@@ -142,6 +150,8 @@ com.matfragg.rekognition_demo/
 │   │   ├── LivenessScreen.kt
 │   │   ├── LivenessViewModel.kt
 │   │   └── LivenessState.kt
+│   │
+│   ├── 📂 document_ocr/
 │   │
 │   └── 📂 camera/
 │       ├── CameraPreviewScreen.kt

@@ -1,104 +1,114 @@
 package com.matfragg.rekognition_demo.navigation
-
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navigation
 import com.matfragg.rekognition_demo.presentation.document_ocr.result.DniResultScreen
 import com.matfragg.rekognition_demo.presentation.document_ocr.scan.DocumentScanScreen
 import com.matfragg.rekognition_demo.presentation.document_ocr.scan.DocumentScanViewModel
 import com.matfragg.rekognition_demo.presentation.face_recognition.FaceRecognitionScreen
 import com.matfragg.rekognition_demo.presentation.liveness.LivenessScreen
+import com.matfragg.rekognition_demo.presentation.liveness.LivenessViewModel
 import com.matfragg.rekognition_demo.presentation.main.MainScreen
+import com.matfragg.rekognition_demo.presentation.onboarding.ChoiceScreen
+import com.matfragg.rekognition_demo.presentation.onboarding.FinalResultScreen
+import com.matfragg.rekognition_demo.presentation.onboarding.OnboardingStartScreen
+import com.matfragg.rekognition_demo.presentation.onboarding.OnboardingViewModel
 
 @Composable
 fun AppNavGraph(
     navController: NavHostController = rememberNavController()
 ) {
+    // La aplicación ahora solo conoce el flujo de onboarding
     NavHost(
         navController = navController,
-        startDestination = Screen.Main.route
+        startDestination = "onboarding"
     ) {
-        // PANTALLA PRINCIPAL - MENÚ DE NAVEGACIÓN
-        composable(Screen.Main.route) {
-            MainScreen(
-                onNavigateToFaceRecognition = {
-                    navController.navigate(Screen.FaceRecognition.route)
-                },
-                onNavigateToLiveness = {
-                    navController.navigate(Screen.Liveness.route)
-                },
-                onNavigateToDocumentScan = {
-                    navController.navigate(Screen.DocumentScan.route)
-                }
-            )
+        onboardingGraph(navController)
+    }
+}
+
+fun NavGraphBuilder.onboardingGraph(navController: NavController) {
+    navigation(startDestination = "start", route = "onboarding") {
+
+        composable("start") {
+            OnboardingStartScreen { navController.navigate("ocr") }
         }
 
-        // FACE RECOGNITION (la anterior MainScreen)
-        composable(Screen.FaceRecognition.route) {
-            FaceRecognitionScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        // LIVENESS
-        composable(Screen.Liveness.route) {
-            LivenessScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
-                onComplete = { sessionId ->
-                    // Handle liveness complete
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        // DOCUMENT SCAN FLOW
-        composable(Screen.DocumentScan.route) {
-            val viewModel: DocumentScanViewModel = hiltViewModel()
-            val dniResult by viewModel.dniResult.collectAsState()
+        composable("ocr") { entry ->
+            val parentEntry = remember(entry) { navController.getBackStackEntry("onboarding") }
+            val sharedViewModel: OnboardingViewModel = hiltViewModel(parentEntry)
+            val scanViewModel: DocumentScanViewModel = hiltViewModel()
+            val dniResultState by scanViewModel.dniResult.collectAsState()
 
             DocumentScanScreen(
-                viewModel = viewModel,
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
-                onScanComplete = { dniNumber ->
-                    // Navegar a resultados con el DNI data
-                    dniResult?.let { dni ->
-                        navController.navigate(Screen.DniResult.route)
+                viewModel = scanViewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onScanComplete = { _ ->
+                    dniResultState?.let { fullDniData ->
+                        sharedViewModel.onDniCaptured(fullDniData)
+                        navController.navigate("liveness")
                     }
                 }
             )
         }
 
-        composable(Screen.DniResult.route) {
-            val previousEntry = remember(navController.currentBackStackEntry) {
-                navController.previousBackStackEntry
-            }
-            val viewModel: DocumentScanViewModel? = previousEntry?.let { hiltViewModel(it) }
-            val dniData by (viewModel?.dniResult?.collectAsState() ?: return@composable)
+        composable("liveness") { entry ->
+            val parentEntry = remember(entry) { navController.getBackStackEntry("onboarding") }
+            val sharedViewModel: OnboardingViewModel = hiltViewModel(parentEntry)
+            val livenessViewModel: LivenessViewModel = hiltViewModel()
+            val livenessState by livenessViewModel.state.collectAsState()
 
-            dniData?.let { dni ->
-                DniResultScreen(
-                    dniData = dni,
-                    onNavigateBack = {
-                        navController.popBackStack(Screen.Main.route, inclusive = false)
-                    },
-                    onSave = { data ->
-                        // TODO: Implementar guardado
-                        navController.popBackStack(Screen.Main.route, inclusive = false)
+            LivenessScreen(
+                viewModel = livenessViewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onComplete = { sessionId ->
+                    livenessViewModel.onLivenessComplete(sessionId)
+                },
+                onContinue = {
+                    val result = livenessState.result
+                    if (result != null && result.isLive) {
+                        sharedViewModel.onLivenessCompleted(result.fotoBase64 ?: "")
+
+                        navController.navigate("choice") {
+                            popUpTo("liveness") { inclusive = true }
+                        }
                     }
-                )
-            }
+                }
+            )
+        }
+
+        composable("choice") { entry ->
+            val parentEntry = remember(entry) { navController.getBackStackEntry("onboarding") }
+            val sharedViewModel: OnboardingViewModel = hiltViewModel(parentEntry)
+            val state by sharedViewModel.state.collectAsState()
+
+            ChoiceScreen(
+                state = state,
+                onCompareClick = {
+                    sharedViewModel.compareFacial()
+                    navController.navigate("result")
+                },
+                onReniecClick = { /* Próxima fase */ }
+            )
+        }
+
+        composable("result") { entry ->
+            val parentEntry = remember(entry) { navController.getBackStackEntry("onboarding") }
+            val sharedViewModel: OnboardingViewModel = hiltViewModel(parentEntry)
+            val state by sharedViewModel.state.collectAsState()
+
+            FinalResultScreen(state = state)
         }
     }
 }
