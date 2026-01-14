@@ -12,6 +12,7 @@ data class DniData(
     val fotoPersonaBase64: String? = null,
     val frontImageBase64: String? = null,
     val backImageBase64: String? = null,
+    val serialNumber: String? = null,
     val confidence: Double = 0.0
 ) {
     fun isValid(): Boolean {

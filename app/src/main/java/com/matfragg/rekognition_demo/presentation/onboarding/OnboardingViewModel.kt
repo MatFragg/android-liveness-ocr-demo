@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.matfragg.rekognition_demo.domain.document_ocr.model.DniData
 import com.matfragg.rekognition_demo.domain.face_recognition.usecase.CompareFacesUseCase
+import com.matfragg.rekognition_demo.domain.reniec.model.ReniecValidation
+import com.matfragg.rekognition_demo.domain.reniec.usecases.ValidateReniecFacialUseCase
 import com.matfragg.rekognition_demo.shared.domain.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -19,6 +21,7 @@ import javax.inject.Inject
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
     private val compareFacesUseCase: CompareFacesUseCase,
+    private val validateReniecUseCase: ValidateReniecFacialUseCase,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -64,6 +67,33 @@ class OnboardingViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 _state.update { it.copy(error = "Error al procesar imágenes: ${e.message}", isLoading = false) }
+            }
+        }
+    }
+
+    fun validateWithReniec() {
+        val dni = _state.value.dniData?.numeroDni ?: return
+        val serial = _state.value.dniData?.serialNumber ?: "0000000000"
+        val photo = _state.value.livenessPhotoBase64 ?: return
+
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true, error = null) }
+
+            // ✅ Especificamos el tipo exacto en el chequeo 'is'
+            when (val result = validateReniecUseCase(dni, serial, photo)) {
+                is Result.Success<*> -> {
+                    _state.update { it.copy(
+                        reniecResult = result.data as ReniecValidation?, // Aquí el smart-cast ya funciona perfecto
+                        isLoading = false
+                    )}
+                }
+                is Result.Error -> {
+                    _state.update { it.copy(
+                        error = "Fallo validación RENIEC: ${result.exception.message}",
+                        isLoading = false
+                    )}
+                }
+                else -> _state.update { it.copy(isLoading = false) }
             }
         }
     }
