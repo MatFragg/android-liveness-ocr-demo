@@ -24,6 +24,7 @@ import com.matfragg.rekognition_demo.presentation.onboarding.ChoiceScreen
 import com.matfragg.rekognition_demo.presentation.onboarding.FinalResultScreen
 import com.matfragg.rekognition_demo.presentation.onboarding.OnboardingStartScreen
 import com.matfragg.rekognition_demo.presentation.onboarding.OnboardingViewModel
+import com.matfragg.rekognition_demo.presentation.reniec.ReniecResultScreen
 
 @Composable
 fun AppNavGraph(
@@ -99,7 +100,11 @@ fun NavGraphBuilder.onboardingGraph(navController: NavController) {
                     sharedViewModel.compareFacial()
                     navController.navigate("result")
                 },
-                onReniecClick = { /* Próxima fase */ }
+                onReniecClick = {
+                    // 🚀 ACTIVAMOS LA VALIDACIÓN REAL CON TU BACKEND
+                    sharedViewModel.validateWithReniec()
+                    navController.navigate("reniec_result")
+                }
             )
         }
 
@@ -109,6 +114,14 @@ fun NavGraphBuilder.onboardingGraph(navController: NavController) {
             val state by sharedViewModel.state.collectAsState()
 
             FinalResultScreen(state = state)
+        }
+
+        composable("reniec_result") { entry ->
+            val parentEntry = remember(entry) { navController.getBackStackEntry("onboarding") }
+            val sharedViewModel: OnboardingViewModel = hiltViewModel(parentEntry)
+            val state by sharedViewModel.state.collectAsState()
+
+            ReniecResultScreen(state = state)
         }
     }
 }

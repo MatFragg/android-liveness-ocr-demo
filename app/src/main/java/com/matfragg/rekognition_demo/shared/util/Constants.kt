@@ -9,8 +9,8 @@ object Constants {
     const val DNI_OCR_URL= "http://localhost:8081/"
     const val AWS_REGION = "us-east-1"
 
-    const val CONNECT_TIMEOUT = 15000L
-    const val READ_TIMEOUT = 20000L
+    const val CONNECT_TIMEOUT = 150000L
+    const val READ_TIMEOUT = 200000L
     const val GOOGLE_CLOUD_PROJECT_ID = "your-project-id"
     const val GOOGLE_CLOUD_CREDENTIALS_FILE = "google_credentials.json"
     const val MAX_IMAGE_SIZE_MB = 10
