@@ -111,4 +111,22 @@ class OnboardingViewModel @Inject constructor(
         file.writeBytes(bytes)
         return file
     }
+
+    fun clearData() {
+        viewModelScope.launch {
+            // 1. Reiniciar el estado a valores iniciales (borra fotos Base64 de la RAM)
+            _state.update { OnboardingState() }
+
+            // 2. Eliminar archivos temporales de la caché del dispositivo
+            try {
+                val cacheDir = context.cacheDir
+                val tempFiles = cacheDir.listFiles { _, name ->
+                    name.startsWith("dni_temp") || name.startsWith("live_temp")
+                }
+                tempFiles?.forEach { it.delete() }
+            } catch (e: Exception) {
+                android.util.Log.e("OnboardingVM", "Error limpiando caché: ${e.message}")
+            }
+        }
+    }
 }

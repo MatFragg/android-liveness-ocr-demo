@@ -42,7 +42,7 @@ fun FinalResultScreen(state: OnboardingState) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(180.dp)
+                .height(240.dp)
                 .padding(bottom = 24.dp)
         ) {
             InfoPhotoCard("Foto OCR", dni?.fotoPersonaBase64, Modifier.weight(1f))

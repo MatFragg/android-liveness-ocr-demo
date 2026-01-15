@@ -121,7 +121,12 @@ fun NavGraphBuilder.onboardingGraph(navController: NavController) {
             val sharedViewModel: OnboardingViewModel = hiltViewModel(parentEntry)
             val state by sharedViewModel.state.collectAsState()
 
-            ReniecResultScreen(state = state)
+            ReniecResultScreen(state = state, onFinish = {
+                sharedViewModel.clearData()
+                navController.navigate("start") {
+                    popUpTo("onboarding") { inclusive = true }
+                }
+            })
         }
     }
 }

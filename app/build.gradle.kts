@@ -139,6 +139,8 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.5.0")
     implementation("androidx.exifinterface:exifinterface:1.3.7")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    implementation("com.google.mlkit:object-detection:17.0.2")
 }
 
 configurations.all {

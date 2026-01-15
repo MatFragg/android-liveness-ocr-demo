@@ -8,7 +8,8 @@ data class DocumentScanState(
     val frontImagePath: String? = null,
     val backImagePath: String? = null,
     val error: String? = null,
-    val documentType: DocumentType = DocumentType.DNI_FRONT
+    val documentType: DocumentType = DocumentType.DNI_FRONT,
+    val isAligned: Boolean = false
 )
 
 enum class ScanStep {

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -24,9 +25,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.matfragg.rekognition_demo.presentation.liveness.ResultRow
 import com.matfragg.rekognition_demo.presentation.onboarding.OnboardingState
+import com.matfragg.rekognition_demo.presentation.onboarding.components.FinishButton
 
 @Composable
-fun ReniecResultScreen(state: OnboardingState) {
+fun ReniecResultScreen(state: OnboardingState, onFinish: () -> Unit) {
     val reniec = state.reniecResult
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
@@ -64,5 +66,11 @@ fun ReniecResultScreen(state: OnboardingState) {
             ResultRow("Nacionalidad", reniec?.nationality ?: "PERUANA")
             ResultRow("Tracking ID", reniec?.trackingToken?.take(15) ?: "-")
         }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        FinishButton(onFinish = onFinish)
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }

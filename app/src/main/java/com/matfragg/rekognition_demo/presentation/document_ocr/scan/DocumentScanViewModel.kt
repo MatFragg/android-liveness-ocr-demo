@@ -83,6 +83,12 @@ class DocumentScanViewModel @Inject constructor(
         }
     }
 
+    fun setAlignment(isAligned: Boolean) {
+        if (_state.value.isAligned != isAligned) {
+            _state.value = _state.value.copy(isAligned = isAligned)
+        }
+    }
+
     fun retryCapture(step: ScanStep) {
         _state.value = _state.value.copy(
             currentStep = step,
