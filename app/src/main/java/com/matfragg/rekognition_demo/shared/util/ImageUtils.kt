@@ -7,26 +7,27 @@ import android.util.Log
 import androidx.exifinterface.media.ExifInterface
 import java.io.File
 import java.io.FileOutputStream
-import kotlin.math.min
+import kotlin.math.max
 import kotlin.math.roundToInt
 
 object ImageUtils {
 
-    private const val DNI_ASPECT_RATIO = 1.586f // Ancho / Alto estándar
-    // Factor para "apretar" el recorte. 0.95 significa que usaremos el 95% del área calculada,
-    // eliminando un 5% de margen para asegurar que no salga el fondo.
-    // Si aún sale fondo, redúcelo a 0.92f o 0.90f.
-    private const val TIGHT_CROP_FACTOR = 0.7f
-
+    private const val DNI_ASPECT_RATIO = 1.586f
 
     /**
+     * Recorta la imagen basándose en las dimensiones reales de la UI
      * @param viewWidth Ancho del PreviewView en la pantalla
      * @param viewHeight Alto del PreviewView en la pantalla
      */
-    fun cropImageToBoundingBox(photoFile: File) {
-        val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
+    fun cropImageToBoundingBox(
+        photoFile: File,
+        viewWidth: Int,
+        viewHeight: Int,
+        isLandscape: Boolean
+    ) {
+        val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath) ?: return
 
-        // 1. Corregir rotación EXIF
+        // 1. Corregir rotación EXIF para trabajar con el bitmap "derecho"
         val exif = ExifInterface(photoFile.absolutePath)
         val orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
         val matrix = Matrix()
@@ -37,50 +38,44 @@ object ImageUtils {
         }
 
         val rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-        val bmWidth = rotatedBitmap.width.toFloat()
-        val bmHeight = rotatedBitmap.height.toFloat()
-        val bmRatio = bmWidth / bmHeight
 
-        // 2. Calcular dimensiones del recorte objetivo basado en el DNI
-        var cropWidth: Float
-        var cropHeight: Float
-
-        // Determinamos qué lado limita el tamaño del DNI dentro de la foto
-        if (bmRatio > DNI_ASPECT_RATIO) {
-            // La foto es más "ancha" que un DNI. La altura es el límite.
-            cropHeight = bmHeight * TIGHT_CROP_FACTOR
-            cropWidth = cropHeight * DNI_ASPECT_RATIO
-        } else {
-            // La foto es más "alta" o cuadrada que un DNI. El ancho es el límite.
-            cropWidth = bmWidth * TIGHT_CROP_FACTOR
-            cropHeight = cropWidth / DNI_ASPECT_RATIO
-        }
-
-        // Asegurarnos que no nos pasamos de las dimensiones de la imagen por errores de redondeo
-        cropWidth = min(cropWidth, bmWidth)
-        cropHeight = min(cropHeight, bmHeight)
-
-        // 3. Calcular coordenadas para centrar el recorte
-        val left = ((bmWidth - cropWidth) / 2).roundToInt().coerceAtLeast(0)
-        val top = ((bmHeight - cropHeight) / 2).roundToInt().coerceAtLeast(0)
-        val finalWidthInt = cropWidth.roundToInt().coerceAtMost(rotatedBitmap.width - left)
-        val finalHeightInt = cropHeight.roundToInt().coerceAtMost(rotatedBitmap.height - top)
-
-        Log.d("IMAGE_UTILS", "Recortando: Origen[${rotatedBitmap.width}x${rotatedBitmap.height}] -> Crop[${finalWidthInt}x${finalHeightInt}] en ($left, $top)")
-
-        // 4. Ejecutar recorte
-        val croppedBitmap = Bitmap.createBitmap(
-            rotatedBitmap,
-            left,
-            top,
-            finalWidthInt,
-            finalHeightInt
+        // 2. Calcular Escala (CameraX FILL_CENTER)
+        // Determinamos cómo se estiró la imagen del sensor para llenar la pantalla
+        val scale = max(
+            rotatedBitmap.width.toFloat() / viewWidth,
+            rotatedBitmap.height.toFloat() / viewHeight
         )
 
-        // 5. Guardar sobrescribiendo el archivo original con alta calidad
+        // 3. Replicar la lógica del DocumentGuideOverlay para obtener coordenadas UI
+        val uiRectWidth = if (isLandscape) {
+            viewHeight * 0.75f * DNI_ASPECT_RATIO
+        } else {
+            viewWidth * 0.85f
+        }
+        val uiRectHeight = uiRectWidth / DNI_ASPECT_RATIO
+
+        val uiLeft = (viewWidth - uiRectWidth) / 2
+        val uiTop = (viewHeight - uiRectHeight) / 2
+
+        // 4. Mapear coordenadas de UI a Píxeles del Bitmap
+        // Compensamos el desplazamiento si la cámara capturó más de lo que la pantalla muestra
+        val bitmapVisibleWidth = viewWidth * scale
+        val bitmapVisibleHeight = viewHeight * scale
+        val offsetX = (rotatedBitmap.width - bitmapVisibleWidth) / 2
+        val offsetY = (rotatedBitmap.height - bitmapVisibleHeight) / 2
+
+        val finalLeft = (offsetX + (uiLeft * scale)).toInt().coerceAtLeast(0)
+        val finalTop = (offsetY + (uiTop * scale)).toInt().coerceAtLeast(0)
+        val finalWidth = (uiRectWidth * scale).toInt().coerceAtMost(rotatedBitmap.width - finalLeft)
+        val finalHeight = (uiRectHeight * scale).toInt().coerceAtMost(rotatedBitmap.height - finalTop)
+
+        Log.d("IMAGE_UTILS", "Crop: view[${viewWidth}x${viewHeight}] bitmap[${rotatedBitmap.width}x${rotatedBitmap.height}] -> final[${finalWidth}x${finalHeight}]")
+
+        // 5. Ejecutar recorte
+        val croppedBitmap = Bitmap.createBitmap(rotatedBitmap, finalLeft, finalTop, finalWidth, finalHeight)
+
+        // 6. Guardar
         FileOutputStream(photoFile).use { out ->
-            // Usamos PNG para evitar artefactos de compresión en el texto del DNI,
-            // o JPEG con calidad 100 si el tamaño no es problema.
             croppedBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
         }
 

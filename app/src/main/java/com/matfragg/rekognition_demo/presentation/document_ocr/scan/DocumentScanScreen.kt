@@ -1,5 +1,6 @@
 package com.matfragg.rekognition_demo.presentation.document_ocr.scan
 
+import android.util.Log
 import android.view.OrientationEventListener
 import android.view.Surface
 import androidx.camera.core.CameraSelector
@@ -22,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -44,6 +46,7 @@ import com.matfragg.rekognition_demo.presentation.document_ocr.components.DniPre
 import com.matfragg.rekognition_demo.presentation.document_ocr.components.DocumentGuideOverlay
 import com.matfragg.rekognition_demo.shared.util.DocumentAnalyzer
 import com.matfragg.rekognition_demo.shared.util.ImageUtils
+import kotlinx.coroutines.delay
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -130,12 +133,70 @@ fun CameraView(
     val lifecycleOwner = LocalLifecycleOwner.current
     val previewView = remember { PreviewView(context) }
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
+    var isTooBright by remember { mutableStateOf(false) }
+    var allowManualCapture by remember { mutableStateOf(false) }
 
-    // Detectar orientación para el botón
+    var viewSize by remember { mutableStateOf(IntSize.Zero) }
+
+    // Detectar orientación
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
-    // Listener de orientación (mantiene tu lógica actual que es correcta)
+    // --- 1. LÓGICA DE CAPTURA (Extraída) ---
+    val performCapture = {
+        // Usamos nombres distintos para evitar que se dupliquen/sobrescriban en el preview
+        val fileName = if (step == ScanStep.FRONT) "dni_front.jpg" else "dni_back.jpg"
+        val photoFile = File(context.externalCacheDir, fileName)
+        val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+
+        imageCapture?.takePicture(
+            outputOptions,
+            ContextCompat.getMainExecutor(context),
+            object : ImageCapture.OnImageSavedCallback {
+                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                    kotlin.concurrent.thread {
+                        try {
+                            // ✅ PASAMOS EL TAMAÑO DE LA VISTA PARA RECORTE PERFECTO
+                            ImageUtils.cropImageToBoundingBox(
+                                photoFile = photoFile,
+                                viewWidth = viewSize.width,
+                                viewHeight = viewSize.height,
+                                isLandscape = isLandscape
+                            )
+                            (context as? android.app.Activity)?.runOnUiThread {
+                                onImageCaptured(photoFile)
+                            }
+                        } catch (e: Exception) {
+                            Log.e("CAMERA", "Error: ${e.message}")
+                            (context as? android.app.Activity)?.runOnUiThread {
+                                onImageCaptured(photoFile)
+                            }
+                        }
+                    }
+                }
+                override fun onError(e: ImageCaptureException) {}
+            }
+        )
+    }
+
+    // --- 2. TEMPORIZADOR PARA CAPTURA MANUAL ---
+    // Si en 5 segundos no detecta automáticamente, habilitamos el botón como respaldo.
+    LaunchedEffect(step) {
+        allowManualCapture = false
+        delay(5000)
+        allowManualCapture = true
+    }
+
+    // --- 3. AUTO-CAPTURA ---
+    // Si el analizador da el OK (verde), disparamos solo tras 1.5s de estabilidad.
+    LaunchedEffect(isAligned) {
+        if (isAligned) {
+            delay(1500)
+            performCapture()
+        }
+    }
+
+    // --- 4. CONFIGURACIÓN DE CAMERAX ---
     val orientationEventListener = remember {
         object : OrientationEventListener(context) {
             override fun onOrientationChanged(orientation: Int) {
@@ -152,9 +213,7 @@ fun CameraView(
     }
 
     LaunchedEffect(Unit) {
-        if (orientationEventListener.canDetectOrientation()) {
-            orientationEventListener.enable()
-        }
+        if (orientationEventListener.canDetectOrientation()) orientationEventListener.enable()
         val cameraProvider = ProcessCameraProvider.getInstance(context).get()
 
         val preview = Preview.Builder()
@@ -169,10 +228,18 @@ fun CameraView(
 
         val imageAnalysis = ImageAnalysis.Builder()
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .setTargetRotation(previewView.display.rotation)
+            // Resolución HD para que el OCR detecte las flechas <<<< del reverso
+            .setTargetResolution(android.util.Size(1280, 720))
             .build()
             .also {
-                it.setAnalyzer(ContextCompat.getMainExecutor(context), DocumentAnalyzer(onAlignmentChanged))
+                it.setAnalyzer(
+                    ContextCompat.getMainExecutor(context),
+                    DocumentAnalyzer(
+                        currentStep = step,
+                        onDetectionResult = { aligned -> onAlignmentChanged(aligned) },
+                        onBrightnessResult = { bright -> isTooBright = bright }
+                    )
+                )
             }
 
         cameraProvider.unbindAll()
@@ -181,20 +248,31 @@ fun CameraView(
 
     DisposableEffect(Unit) { onDispose { orientationEventListener.disable() } }
 
+    // --- 5. INTERFAZ DE USUARIO ---
     Box(modifier = Modifier.fillMaxSize()) {
-        AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+        AndroidView(
+            factory = { previewView },
+            modifier = Modifier
+                .fillMaxSize()
+                .onGloballyPositioned { coordinates ->
+                    // 🎯 Capturamos el tamaño exacto de la pantalla
+                    viewSize = coordinates.size
+                }
+        )
 
         DocumentGuideOverlay(isAligned = isAligned)
 
         InstructionsCard(
             step = step,
             isLandscape = isLandscape,
+            isAligned = isAligned,
+            isTooBright = isTooBright,
             modifier = Modifier
                 .align(if (isLandscape) Alignment.TopStart else Alignment.TopCenter)
                 .padding(16.dp)
         )
 
-        // 📸 USAMOS TU NUEVO CAPTURE BUTTON
+        // Botón de captura dinámico
         Box(
             modifier = Modifier
                 .align(if (isLandscape) Alignment.CenterEnd else Alignment.BottomCenter)
@@ -202,93 +280,88 @@ fun CameraView(
         ) {
             CaptureButton(
                 isLandscape = isLandscape,
-                onClick = {
-                    val fileName = if (step == ScanStep.FRONT) "dni_front.jpg" else "dni_back.jpg"
-
-                    val photoFile = File(
-                        context.externalCacheDir,
-                        fileName
-                    )
-
-                    val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
-
-                    imageCapture?.takePicture(
-                        outputOptions,
-                        ContextCompat.getMainExecutor(context),
-                        object : ImageCapture.OnImageSavedCallback {
-                            override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                                kotlin.concurrent.thread {
-                                    try {
-                                        // Recorta y sobrescribe el archivo específico (front o back)
-                                        ImageUtils.cropImageToBoundingBox(photoFile)
-
-                                        (context as? android.app.Activity)?.runOnUiThread {
-                                            onImageCaptured(photoFile)
-                                        }
-                                    } catch (e: Exception) {
-                                        android.util.Log.e("CAMERA", "Error al recortar: ${e.message}")
-                                        (context as? android.app.Activity)?.runOnUiThread {
-                                            onImageCaptured(photoFile)
-                                        }
-                                    }
-                                }
-                            }
-                            override fun onError(e: ImageCaptureException) {
-                                android.util.Log.e("CAMERA", "Error captura: ${e.message}")
-                            }
-                        }
-                    )
-                }
+                // Habilitado si está en verde O si ya pasaron los 5 segundos de espera
+                enabled = isAligned || allowManualCapture,
+                isManualForced = allowManualCapture && !isAligned,
+                onClick = { performCapture() }
             )
         }
-    }
-}
 
-@Composable
-fun InstructionsCard(
-    step: ScanStep,
-    isLandscape: Boolean, // 👈 Nuevo parámetro
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.then(
-            if (isLandscape) Modifier.widthIn(max = 300.dp) else Modifier.fillMaxWidth()
-        ),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f)
-        ),
-        shape = RoundedCornerShape(if (isLandscape) 32.dp else 12.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(if (isLandscape) 8.dp else 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Info,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp)
-            )
-            Spacer(Modifier.width(8.dp))
-            Column {
+        // Mensaje de ayuda para modo manual
+        if (allowManualCapture && !isAligned) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 110.dp),
+                color = Color.Black.copy(alpha = 0.7f),
+                shape = RoundedCornerShape(8.dp)
+            ) {
                 Text(
-                    text = if (step == ScanStep.FRONT) "Frontal DNI" else "Trasero DNI",
-                    style = if (isLandscape) MaterialTheme.typography.labelLarge else MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    text = "No se detecta el reverso. Intenta capturar manualmente.",
+                    color = Color.White,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelSmall
                 )
-                // En horizontal ocultamos el subtexto para ahorrar espacio
-                if (!isLandscape) {
-                    Text(
-                        text = "Coloca el documento dentro del recuadro",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
             }
         }
     }
 }
+@Composable
+fun InstructionsCard(
+    step: ScanStep,
+    isLandscape: Boolean,
+    isAligned: Boolean,
+    isTooBright: Boolean, // 👈 Nuevo parámetro
+    modifier: Modifier = Modifier
+) {
+    val containerColor = when {
+        isTooBright -> Color(0xFFFFF3E0).copy(alpha = 0.9f) // Naranja claro para aviso
+        isAligned -> Color(0xFFE8F5E9).copy(alpha = 0.9f)
+        else -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f)
+    }
 
+    val contentColor = when {
+        isTooBright -> Color(0xFFE65100) // Naranja oscuro
+        isAligned -> Color(0xFF2E7D32)
+        else -> MaterialTheme.colorScheme.primary
+    }
+
+    Card(
+        modifier = modifier.then(
+            if (isLandscape) Modifier.widthIn(max = 280.dp) else Modifier.fillMaxWidth()
+        ),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        shape = RoundedCornerShape(if (isLandscape) 24.dp else 12.dp)
+    ) {
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = when {
+                    isTooBright -> Icons.Default.LightMode
+                    isAligned -> Icons.Default.CheckCircle
+                    else -> Icons.Default.Info
+                },
+                contentDescription = null,
+                tint = contentColor
+            )
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = if (isTooBright) "¡Mucha Luz!" else if (step == ScanStep.FRONT) "Anverso" else "Reverso",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = contentColor
+                )
+                Text(
+                    text = if (isTooBright) "Evita los reflejos sobre el DNI"
+                    else if (isAligned) "¡Listo!"
+                    else "Alinea el documento",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = contentColor
+                )
+            }
+        }
+    }
+}
 @Composable
 fun ProcessingView(
     isLoading: Boolean,
@@ -349,25 +422,35 @@ fun ProcessingView(
 @Composable
 fun CaptureButton(
     isLandscape: Boolean,
+    enabled: Boolean,
+    isManualForced: Boolean, // Nuevo: Indica si la captura es manual por timeout
     onClick: () -> Unit
 ) {
-    // Animación de rotación del icono
     val rotationAngle by animateFloatAsState(
         targetValue = if (isLandscape) 90f else 0f,
         animationSpec = tween(400),
         label = "iconRotation"
     )
 
+    val containerColor = when {
+        isManualForced -> MaterialTheme.colorScheme.tertiary // Color de advertencia/manual
+        enabled -> MaterialTheme.colorScheme.primary
+        else -> Color.Gray
+    }
+
     FloatingActionButton(
-        onClick = onClick,
-        modifier = Modifier.size(72.dp)
+        onClick = { if (enabled) onClick() },
+        modifier = Modifier
+            .size(72.dp)
+            .alpha(if (enabled) 1f else 0.5f),
+        containerColor = containerColor
     ) {
         Icon(
-            imageVector = Icons.Default.CameraAlt,
+            imageVector = if (isManualForced) Icons.Default.Camera else if (enabled) Icons.Default.CameraAlt else Icons.Default.FilterCenterFocus,
             contentDescription = null,
             modifier = Modifier
                 .size(32.dp)
-                .rotate(rotationAngle) // 👈 El icono gira, el botón se queda en su lugar
+                .rotate(rotationAngle)
         )
     }
 }

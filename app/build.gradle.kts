@@ -141,6 +141,11 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     implementation("com.google.mlkit:object-detection:17.0.2")
+
+    implementation("com.google.mlkit:text-recognition:16.0.0")
+    implementation("com.google.mlkit:face-detection:16.1.5")
+
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
 }
 
 configurations.all {
