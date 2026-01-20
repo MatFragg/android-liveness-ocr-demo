@@ -1,5 +1,7 @@
 package com.matfragg.rekognition_demo.presentation.onboarding
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +24,7 @@ import com.matfragg.rekognition_demo.presentation.liveness.ResultRow
 import com.matfragg.rekognition_demo.presentation.onboarding.components.InfoPhotoCard
 import com.matfragg.rekognition_demo.presentation.onboarding.components.ProbabilityCircle
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun FinalResultScreen(state: OnboardingState) {
     val dni = state.dniData
@@ -71,7 +74,10 @@ fun FinalResultScreen(state: OnboardingState) {
                 ResultRow("# DNI", dni?.numeroDni ?: "No detectado")
                 ResultRow("Nombres", dni?.nombres ?: "No detectado")
                 ResultRow("Apellidos", dni?.apellidos ?: "No detectado")
-                ResultRow("Vencimiento", dni?.fechaVencimiento ?: "No detectado")
+                ResultRow(
+                    label = "Vencimiento",
+                    value = dni?.getFormattedVencimiento("dd/MM/yyyy") ?: "No detectado"
+                )
                 ResultRow("Nacionalidad", dni?.nacionalidad ?: "PERUANA")
             }
         }
