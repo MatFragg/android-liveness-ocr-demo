@@ -9,7 +9,9 @@ data class DocumentScanState(
     val backImagePath: String? = null,
     val error: String? = null,
     val documentType: DocumentType = DocumentType.DNI_FRONT,
-    val isAligned: Boolean = false
+    val isAligned: Boolean = false,
+    val hasCameraPermission: Boolean = false,
+    val permissionShowRationale: Boolean = false
 )
 
 enum class ScanStep {

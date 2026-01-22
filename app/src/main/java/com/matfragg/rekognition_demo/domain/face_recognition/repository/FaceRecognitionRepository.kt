@@ -7,5 +7,7 @@ import java.io.File
 
 interface FaceRecognitionRepository {
     suspend fun detectFace(image: File): Result<FaceAnalysis>
+    /*suspend fun compareFaces(source: File, target: File): Result<FaceComparison>*/
+
     suspend fun compareFaces(source: File, target: File): Result<FaceComparison>
 }

@@ -20,10 +20,8 @@ object ReniecModule {
     @Provides
     @Singleton
     fun provideReniecApi(
-        @Named("spring_backend") retrofit: Retrofit // <--- ADD THIS ANNOTATION
-    ): ReniecApi {
-        return retrofit.create(ReniecApi::class.java)
-    }
+        @Named("compare") retrofit: Retrofit // Usa el cliente con TokenAuthenticator
+    ): ReniecApi = retrofit.create(ReniecApi::class.java)
 
     @Provides
     @Singleton

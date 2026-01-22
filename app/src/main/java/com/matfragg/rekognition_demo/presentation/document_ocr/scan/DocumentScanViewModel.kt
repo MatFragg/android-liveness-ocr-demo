@@ -9,6 +9,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
@@ -42,42 +43,24 @@ class DocumentScanViewModel @Inject constructor(
         val frontPath = _state.value.frontImagePath
         val backPath = _state.value.backImagePath
 
-        // 1. Verificación con Log para depurar
         if (frontPath == null || backPath == null) {
             _state.value = _state.value.copy(error = "Faltan las imágenes del DNI")
             return
         }
 
         viewModelScope.launch {
-            // 2. CAMBIO CRÍTICO: Cambiar a ScanStep.PROCESSING para que la UI muestre el spinner
-            _state.value = _state.value.copy(
-                isLoading = true,
-                error = null,
-                currentStep = ScanStep.PROCESSING // <-- Agrega esto
-            )
+            _state.update { it.copy(isLoading = true, currentStep = ScanStep.PROCESSING) }
 
-            android.util.Log.d("SCAN_VM", "Iniciando subida... Front: $frontPath")
-
-            // 3. Ejecutar el UseCase
             when (val result = processDniUseCase(File(frontPath), File(backPath))) {
+                is Result.Loading -> {
+                    _state.update { it.copy(isLoading = true) }
+                }
                 is Result.Success -> {
-                    android.util.Log.d("SCAN_VM", "Subida exitosa: ${result.data.numeroDni}")
                     _dniResult.value = result.data
-                    _state.value = _state.value.copy(
-                        isLoading = false,
-                        currentStep = ScanStep.COMPLETE
-                    )
+                    _state.update { it.copy(isLoading = false, currentStep = ScanStep.COMPLETE) }
                 }
                 is Result.Error -> {
-                    android.util.Log.e("SCAN_VM", "Error en subida: ${result.exception.message}")
-                    _state.value = _state.value.copy(
-                        isLoading = false,
-                        currentStep = ScanStep.PROCESSING, // Mantener aquí para mostrar el botón de reintentar
-                        error = result.exception.message ?: "Error al procesar DNI"
-                    )
-                }
-                is Result.Loading -> {
-                    // El estado de carga ya lo manejamos arriba
+                    _state.update { it.copy(isLoading = false, error = result.exception.message) }
                 }
             }
         }
@@ -99,5 +82,9 @@ class DocumentScanViewModel @Inject constructor(
     fun reset() {
         _state.value = DocumentScanState()
         _dniResult.value = null
+    }
+
+    fun onCameraPermissionResult(isGranted: Boolean) {
+        _state.update { it.copy(hasCameraPermission = isGranted) }
     }
 }

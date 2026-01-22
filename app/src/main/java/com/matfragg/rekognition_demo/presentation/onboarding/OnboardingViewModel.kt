@@ -83,7 +83,7 @@ class OnboardingViewModel @Inject constructor(
             when (val result = validateReniecUseCase(dni, serial, photo)) {
                 is Result.Success<*> -> {
                     _state.update { it.copy(
-                        reniecResult = result.data as ReniecValidation?, // Aquí el smart-cast ya funciona perfecto
+                        reniecResult = result.data as ReniecValidation?,
                         isLoading = false
                     )}
                 }

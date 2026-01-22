@@ -11,7 +11,7 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.matfragg.rekognition_demo"
+        applicationId = "com.matfragg.rekognition_demo.test"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
@@ -125,6 +125,8 @@ dependencies {
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // Protobuf (si necesitas trabajar con buffers directamente)
     implementation("com.google.protobuf:protobuf-javalite:3.24.3")

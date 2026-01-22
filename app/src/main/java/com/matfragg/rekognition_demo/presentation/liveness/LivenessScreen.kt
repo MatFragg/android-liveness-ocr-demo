@@ -452,10 +452,10 @@ fun AmplifyLivenessDetector(
             Log.i("LIVENESS", "Completado con éxito")
             onComplete()
         },
-        onError = { livenessError ->
-            val errorMessage = livenessError.throwable?.message ?: "Error desconocido en el SDK"
-            Log.e("LIVENESS", "Error: $errorMessage")
-            onError(errorMessage)
+        onError = { exception ->
+            // Esto te dirá si es un error de firma (SigV4), de red, o de sesión no encontrada
+            Log.e("LIVENESS", "Causa real: ${exception.throwable?.cause}")
+            onError(exception.throwable?.message ?: "Error desconocido")
         }
     )
 }

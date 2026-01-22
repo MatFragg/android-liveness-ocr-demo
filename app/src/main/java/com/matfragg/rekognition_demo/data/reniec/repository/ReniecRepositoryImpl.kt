@@ -19,25 +19,23 @@ class ReniecRepositoryImpl @Inject constructor(
         photoBase64: String
     ): Result<ReniecValidation> {
         return try {
-            // 1. Preparamos el DTO para el backend
             val request = ReniecRequestDto(
                 documentNumber = dni,
                 serialNumber = serial,
                 template = photoBase64
             )
 
-            // 2. Llamada a tu API de Spring Boot
-            val response = api.validateFacial(request)
+            val responseWrapper = api.validateFacial(request)
 
-            // 3. Mapeo a modelo de Dominio
-            // Nota: Si el backend devuelve 200, asumimos que es un éxito de red.
-            // La lógica de HIT/NO HIT se evalúa en el mapper.
-            val domainModel = mapper.toDomain(response)
-
-            Result.Success(domainModel)
-
+            val code = responseWrapper.result?.code ?: ""
+            // Validamos el éxito de la transacción según el código de ACJ
+            if ((code == "000" || code == "0000") && responseWrapper.data != null) {
+                Result.Success(mapper.toDomain(responseWrapper.data))
+            } else {
+                val errorMsg = responseWrapper.result?.info ?: "Error desconocido en RENIEC"
+                Result.Error(Exception(errorMsg))
+            }
         } catch (e: Exception) {
-            // Manejo de errores de red o errores 400/500 del backend
             Result.Error(e)
         }
     }
