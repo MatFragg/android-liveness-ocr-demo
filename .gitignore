@@ -35,3 +35,11 @@ amplifytools.xcconfig
 .secret-*
 **.sample
 #amplify-do-not-edit-end
+
+# APKs
+*.apk
+
+# Build outputs
+/app/build/
+/app/debug/
+/app/release/
