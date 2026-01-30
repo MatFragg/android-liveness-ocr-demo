@@ -8,6 +8,7 @@ import com.matfragg.rekognition_demo.data.authentication.remote.TokenAuthenticat
 import com.matfragg.rekognition_demo.data.document_ocr.remote.DniApi
 import com.matfragg.rekognition_demo.data.face_recognition.remote.RekognitionApi
 import com.matfragg.rekognition_demo.data.liveness.remote.LivenessApi
+import com.matfragg.rekognition_demo.domain.auth.repository.AuthRepository
 import com.matfragg.rekognition_demo.shared.util.AuthInterceptor
 import com.matfragg.rekognition_demo.shared.util.Constants
 import com.matfragg.rekognition_demo.shared.util.TokenManager
@@ -27,6 +28,7 @@ import javax.inject.Singleton
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
+import dagger.Lazy
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -38,18 +40,21 @@ object NetworkModule {
         .setLenient()
         .create()
 
-    @Provides
-    @Singleton
-    fun provideAuthInterceptor(tokenManager: TokenManager): AuthInterceptor {
-        return AuthInterceptor(tokenManager)
+    fun provideAuthInterceptor(
+        tokenManager: TokenManager,
+        authRepository: Lazy<AuthRepository> // Dagger inyectará esto automáticamente
+    ): AuthInterceptor {
+        return AuthInterceptor(tokenManager, authRepository)
     }
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(tokenAuthenticator: TokenAuthenticator,tokenManager: TokenManager): OkHttpClient {
+    fun provideOkHttpClient(
+        tokenAuthenticator: TokenAuthenticator,
+        authInterceptor: AuthInterceptor // ✅ CORRECCIÓN 2: Inyectamos el interceptor ya creado arriba
+    ): OkHttpClient {
 
         return try {
-            // --- INICIO DEL PARCHE DE SEGURIDAD (Copiado de tu compañero) ---
             val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
                 override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
                 override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
@@ -58,17 +63,15 @@ object NetworkModule {
 
             val sslContext = SSLContext.getInstance("SSL")
             sslContext.init(null, trustAllCerts, java.security.SecureRandom())
-            // --- FIN DEL PARCHE ---
 
             return OkHttpClient.Builder()
-                .authenticator(tokenAuthenticator)
                 .sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
                 .hostnameVerifier { _, _ -> true }
-                // Inyecta el interceptor directamente
-                .addInterceptor(AuthInterceptor(tokenManager))
+                .addInterceptor(authInterceptor) // ✅ Usamos la instancia inyectada, no creamos una nueva
                 .addInterceptor(HttpLoggingInterceptor().apply {
                     level = HttpLoggingInterceptor.Level.BODY
                 })
+                .authenticator(tokenAuthenticator)
                 .connectTimeout(Constants.CONNECT_TIMEOUT, TimeUnit.MILLISECONDS)
                 .readTimeout(Constants.READ_TIMEOUT, TimeUnit.MILLISECONDS)
                 .build()

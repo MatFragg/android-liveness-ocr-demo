@@ -11,32 +11,14 @@ import java.io.File
 import javax.inject.Inject
 
 class CompareFacesUseCase @Inject constructor(
-    private val repository: FaceRecognitionRepository,
-    private val authRepository: AuthRepository,
-    private val tokenManager: TokenManager
+    private val repository: FaceRecognitionRepository
 ) {
     suspend operator fun invoke(source: File, target: File): Result<FaceComparison> {
-        // 1. Validaciones básicas de negocio
+        // Solo validamos que los archivos existan
         if (!source.exists() || !target.exists()) {
-            return Result.Error(IllegalArgumentException("Una o ambas imágenes no existen"))
+            return Result.Error(IllegalArgumentException("Imágenes no encontradas"))
         }
-
-        // 2. Verificación proactiva del token
-        if (tokenManager.getToken() == null) {
-            val authResult = authRepository.login(
-                Constants.ACJ_API_CLIENT_ID,
-                Constants.ACJ_API_CLIENT_SECRET
-            )
-
-            // Si el login falla, devolvemos el error inmediatamente
-            if (authResult is Result.Error) {
-                return Result.Error(Exception("No se pudo obtener el token de acceso"))
-            }
-
-            // Si tiene éxito, el TokenManager ya guardó el token mediante el repositorio
-        }
-
-        // 3. Ejecutar la comparación (con la seguridad de que el token existe)
+        // Llamamos directamente al repo
         return repository.compareFaces(source, target)
     }
 }

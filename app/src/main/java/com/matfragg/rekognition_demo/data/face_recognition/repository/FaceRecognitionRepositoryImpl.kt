@@ -56,12 +56,11 @@ class FaceRecognitionRepositoryImpl @Inject constructor(
     }
 
     private fun fileToBase64(file: File): String {
-        // Aprovecha tu función toOptimizedBitmap para no enviar una foto de 10MB
         val bitmap = file.toOptimizedBitmap()
         val outputStream = java.io.ByteArrayOutputStream()
 
-        // Comprimimos un poco antes de convertir a Base64
-        bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, outputStream)
+        // Bajamos a 50 para que el JSON de las DOS fotos juntas no pase de 100KB
+        bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 50, outputStream)
         val byteArray = outputStream.toByteArray()
 
         return Base64.encodeToString(byteArray, Base64.NO_WRAP)
@@ -69,17 +68,14 @@ class FaceRecognitionRepositoryImpl @Inject constructor(
 
     override suspend fun compareFaces(source: File, target: File): Result<FaceComparison> {
         return try {
-            // 1. Convertir archivos a Base64
             val sourceBase64 = fileToBase64(source)
             val targetBase64 = fileToBase64(target)
 
-            // 2. Crear el request JSON
             val request = NewCompareRequest(
-                imageFirst = sourceBase64,
-                imageSecond = targetBase64
+                imageFirst = sourceBase64,  // Asegúrate que estos nombres
+                imageSecond = targetBase64  // coincidan con tu DTO
             )
 
-            // 3. Llamar al API
             val dto = api.compareFaces(request)
             Result.Success(mapper.toDomain(dto))
         } catch (e: Exception) {

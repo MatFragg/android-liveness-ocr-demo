@@ -84,7 +84,8 @@ class FaceRecognitionViewModel @Inject constructor(
 
             // 1. ensureAuthenticated hace el login y guarda el token
             if (!ensureAuthenticated()) return@launch
-
+            val tokenActivo = tokenManager.getToken()
+            Log.d("FLOW_CHECK", "Token listo para enviar: ${tokenActivo?.take(10)}")
             // 2. Aquí el token YA ESTÁ en el Singleton de TokenManager
             _state.update { it.copy(statusMessage = "Comparando rostros...") }
 
@@ -143,41 +144,26 @@ class FaceRecognitionViewModel @Inject constructor(
     }
 
     private suspend fun ensureAuthenticated(): Boolean {
-        val token = tokenManager.getToken()
+        // 1. LIMPIEZA TOTAL: Borramos lo que haya (RAM y Disco)
+        tokenManager.clearToken()
+        Log.d("AUTH_FLOW", "🔐 Forzando refresco de token...")
 
-        if (token.isNullOrBlank() || tokenManager.isTokenExpired()) {
-            Log.d("AUTH_FLOW", "🔐 Iniciando login...")
-            _state.update { it.copy(statusMessage = "Autenticando...") }
+        // 2. LLAMADA AL API DE ACCESO
+        val loginResult = loginUseCase(
+            Constants.ACJ_API_CLIENT_ID,
+            Constants.ACJ_API_CLIENT_SECRET
+        )
 
-            val loginResult = loginUseCase(
-                Constants.ACJ_API_CLIENT_ID,
-                Constants.ACJ_API_CLIENT_SECRET
-            )
-
-            return when (loginResult) {
-                is Result.Success -> {
-                    // Guardar token
-                    tokenManager.saveToken(loginResult.data.accessToken)
-                    tokenManager.saveExpiry(loginResult.data.expireIn)
-
-                    // ✅ CRUCIAL: Pequeño delay para asegurar propagación
-                    kotlinx.coroutines.delay(100)
-
-                    Log.d("AUTH_FLOW", "✅ Token guardado y listo")
-                    true
-                }
-                is Result.Error -> {
-                    Log.e("AUTH_FLOW", "❌ Error en login: ${loginResult.exception.message}")
-                    _result.value = FaceResult.Error("Error de autenticación")
-                    _state.update { it.copy(statusMessage = "Error de autenticación") }
-                    false
-                }
-                else -> false
+        return when (loginResult) {
+            is Result.Success -> {
+                tokenManager.saveToken(loginResult.data.accessToken)
+                tokenManager.saveExpiry(loginResult.data.expireIn)
+                kotlinx.coroutines.delay(500) // Tiempo para asegurar el guardado
+                true
             }
+            is Result.Error -> false
+            else -> false
         }
-
-        Log.d("AUTH_FLOW", "✅ Token ya existe, continuando...")
-        return true
     }
 
     fun clearResult() {

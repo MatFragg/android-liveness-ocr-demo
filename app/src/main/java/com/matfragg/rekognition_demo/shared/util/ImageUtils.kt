@@ -13,12 +13,8 @@ import kotlin.math.roundToInt
 object ImageUtils {
 
     private const val DNI_ASPECT_RATIO = 1.586f
+    private const val MAX_HEIGHT = 800
 
-    /**
-     * Recorta la imagen basándose en las dimensiones reales de la UI
-     * @param viewWidth Ancho del PreviewView en la pantalla
-     * @param viewHeight Alto del PreviewView en la pantalla
-     */
     fun cropImageToBoundingBox(
         photoFile: File,
         viewWidth: Int,
@@ -27,7 +23,6 @@ object ImageUtils {
     ) {
         val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath) ?: return
 
-        // 1. Corregir rotación EXIF para trabajar con el bitmap "derecho"
         val exif = ExifInterface(photoFile.absolutePath)
         val orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
         val matrix = Matrix()
@@ -40,25 +35,19 @@ object ImageUtils {
         val rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
 
         // 2. Calcular Escala (CameraX FILL_CENTER)
-        // Determinamos cómo se estiró la imagen del sensor para llenar la pantalla
         val scale = max(
             rotatedBitmap.width.toFloat() / viewWidth,
             rotatedBitmap.height.toFloat() / viewHeight
         )
 
-        // 3. Replicar la lógica del DocumentGuideOverlay para obtener coordenadas UI
-        val uiRectWidth = if (isLandscape) {
-            viewHeight * 0.75f * DNI_ASPECT_RATIO
-        } else {
-            viewWidth * 0.85f
-        }
+        // 3. Coordenadas UI
+        val uiRectWidth = if (isLandscape) viewHeight * 0.75f * DNI_ASPECT_RATIO else viewWidth * 0.85f
         val uiRectHeight = uiRectWidth / DNI_ASPECT_RATIO
 
         val uiLeft = (viewWidth - uiRectWidth) / 2
         val uiTop = (viewHeight - uiRectHeight) / 2
 
-        // 4. Mapear coordenadas de UI a Píxeles del Bitmap
-        // Compensamos el desplazamiento si la cámara capturó más de lo que la pantalla muestra
+        // 4. Mapear coordenadas a Píxeles
         val bitmapVisibleWidth = viewWidth * scale
         val bitmapVisibleHeight = viewHeight * scale
         val offsetX = (rotatedBitmap.width - bitmapVisibleWidth) / 2
@@ -69,19 +58,30 @@ object ImageUtils {
         val finalWidth = (uiRectWidth * scale).toInt().coerceAtMost(rotatedBitmap.width - finalLeft)
         val finalHeight = (uiRectHeight * scale).toInt().coerceAtMost(rotatedBitmap.height - finalTop)
 
-        Log.d("IMAGE_UTILS", "Crop: view[${viewWidth}x${viewHeight}] bitmap[${rotatedBitmap.width}x${rotatedBitmap.height}] -> final[${finalWidth}x${finalHeight}]")
-
-        // 5. Ejecutar recorte
+        // 5. Ejecutar recorte inicial
         val croppedBitmap = Bitmap.createBitmap(rotatedBitmap, finalLeft, finalTop, finalWidth, finalHeight)
 
-        // 6. Guardar
-        FileOutputStream(photoFile).use { out ->
-            croppedBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
+        // --- NUEVO: REDIMENSIONAR PARA BAJAR PESO ---
+        // Si el recorte es muy grande, lo bajamos a una escala manejable (MAX_HEIGHT)
+        val finalResizedBitmap = if (croppedBitmap.height > MAX_HEIGHT) {
+            val ratio = croppedBitmap.width.toFloat() / croppedBitmap.height.toFloat()
+            val targetWidth = (MAX_HEIGHT * ratio).toInt()
+            Bitmap.createScaledBitmap(croppedBitmap, targetWidth, MAX_HEIGHT, true)
+        } else {
+            croppedBitmap
         }
+
+        // 6. Guardar con COMPRESIÓN al 80% (Baja mucho el peso sin pixelar la cara)
+        FileOutputStream(photoFile).use { out ->
+            finalResizedBitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
+        }
+
+        Log.d("IMAGE_UTILS", "Peso reducido. Dimensiones finales: ${finalResizedBitmap.width}x${finalResizedBitmap.height}")
 
         // Liberar memoria
         if (bitmap != rotatedBitmap) bitmap.recycle()
         rotatedBitmap.recycle()
-        croppedBitmap.recycle()
+        if (croppedBitmap != finalResizedBitmap) croppedBitmap.recycle()
+        finalResizedBitmap.recycle()
     }
 }
