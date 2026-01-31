@@ -13,6 +13,7 @@ import kotlin.math.roundToInt
 object ImageUtils {
 
     private const val DNI_ASPECT_RATIO = 1.586f
+    // Definimos un tamaño máximo para el lado más largo (p.ej. 800px es ideal para biometría)
     private const val MAX_HEIGHT = 800
 
     fun cropImageToBoundingBox(
@@ -23,6 +24,7 @@ object ImageUtils {
     ) {
         val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath) ?: return
 
+        // 1. Corregir rotación EXIF
         val exif = ExifInterface(photoFile.absolutePath)
         val orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
         val matrix = Matrix()
@@ -41,7 +43,7 @@ object ImageUtils {
         )
 
         // 3. Coordenadas UI
-        val uiRectWidth = if (isLandscape) viewHeight * 0.75f * DNI_ASPECT_RATIO else viewWidth * 0.85f
+        val uiRectWidth = if (isLandscape) viewHeight * 0.56f * DNI_ASPECT_RATIO else viewWidth * 0.59f
         val uiRectHeight = uiRectWidth / DNI_ASPECT_RATIO
 
         val uiLeft = (viewWidth - uiRectWidth) / 2

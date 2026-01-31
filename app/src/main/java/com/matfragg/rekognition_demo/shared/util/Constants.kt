@@ -18,4 +18,8 @@ object Constants {
     const val MAX_IMAGE_SIZE_MB = 10
     const val IMAGE_MAX_WIDTH = 640
     const val IMAGE_QUALITY = 40
+
+    const val DNI_ASPECT_RATIO = 1.586f // ISO/IEC 7810 ID-1
+    const val HORIZONTAL_VIEW_PORTION = 0.75f // 75% del alto
+    const val VERTICAL_VIEW_PORTION = 0.90f
 }

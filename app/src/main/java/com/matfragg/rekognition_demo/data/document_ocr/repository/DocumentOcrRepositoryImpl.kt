@@ -65,9 +65,9 @@ class DocumentOcrRepositoryImpl @Inject constructor(
     private fun optimizeImage(file: File): File {
         return try {
             val options = BitmapFactory.Options().apply { inMutable = true }
-            val originalBitmap = BitmapFactory.decodeFile(file.absolutePath, options) ?: throw Exception("No se pudo decodificar la imagen")
+            val originalBitmap = BitmapFactory.decodeFile(file.absolutePath, options) ?: return file
 
-            // 1. Corregir Rotación
+            // 1. Corregir Rotación (Mantener esto)
             val exif = androidx.exifinterface.media.ExifInterface(file.absolutePath)
             val orientation = exif.getAttributeInt(androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION, 1)
             val matrix = android.graphics.Matrix()
@@ -78,33 +78,21 @@ class DocumentOcrRepositoryImpl @Inject constructor(
             }
             val rotatedBitmap = Bitmap.createBitmap(originalBitmap, 0, 0, originalBitmap.width, originalBitmap.height, matrix, true)
 
-            // 2. Lógica de Recorte Segura
-            val imgW = rotatedBitmap.width
-            val imgH = rotatedBitmap.height
-            val cropW = (imgW * 0.85f).toInt()
-            val cropH = (cropW / 1.586f).toInt()
+            // ❌ ELIMINA TODO EL BLOQUE DE "Lógica de Recorte Segura" (val cropW, val cropH, etc.)
+            // No debemos recortar aquí porque ImageUtils ya recortó el área del DNI.
 
-            // Aseguramos que las coordenadas estén dentro del rango permitido
-            val startX = ((imgW - cropW) / 2).coerceIn(0, imgW - 1)
-            val startY = ((imgH - cropH) / 2).coerceIn(0, imgH - 1)
-            val finalCropW = cropW.coerceAtMost(imgW - startX)
-            val finalCropH = cropH.coerceAtMost(imgH - startY)
-
-            val croppedBitmap = Bitmap.createBitmap(rotatedBitmap, startX, startY, finalCropW, finalCropH)
-
-            // 3. Escalado y Compresión
-            val finalScale = 1080f / croppedBitmap.width
-            val scaledBitmap = Bitmap.createScaledBitmap(croppedBitmap, 1080, (croppedBitmap.height * finalScale).toInt(), true)
+            // 2. Solo redimensionar para asegurar que el backend reciba un tamaño estándar y comprimir
+            val targetWidth = 1080
+            val scale = targetWidth.toFloat() / rotatedBitmap.width
+            val finalBitmap = Bitmap.createScaledBitmap(rotatedBitmap, targetWidth, (rotatedBitmap.height * scale).toInt(), true)
 
             val optimizedFile = File(file.parent, "upload_${file.name}")
             FileOutputStream(optimizedFile).use { out ->
-                scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
+                finalBitmap.compress(Bitmap.CompressFormat.JPEG, 85, out) // 85% de calidad es ideal
             }
-
             optimizedFile
         } catch (e: Exception) {
-            android.util.Log.e("OCR_REPO", "Error procesando imagen: ${e.message}")
-            file // Si falla el recorte, devolvemos el original para no bloquear el botón
+            file
         }
     }
 }
